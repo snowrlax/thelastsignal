@@ -1,6 +1,9 @@
 import { expect, test, type Page } from "@playwright/test";
 import { run, stubNetwork } from "./helpers";
 
+/** The opening's last line (components/screens/opening.ts). */
+const PROMPT = "PRESS ANY KEY TO CONTINUE";
+
 const progress = async (page: Page): Promise<number> => Number(await page.getByTestId("cinematic").getAttribute("data-progress"));
 
 test("a first-time run: the opening types itself out, then title to ending with no page errors", async ({ page }) => {
@@ -31,7 +34,9 @@ test("a first-time run: the opening types itself out, then title to ending with 
   await expect(cinematic).toHaveAttribute("data-card", "1", { timeout: 10_000 });
 
   await expect(cinematic).toHaveAttribute("data-state", "prompt", { timeout: 60_000 });
-  await expect(cinematic).toContainText("PRESS ANY KEY TO CONTINUE");
+  await expect(cinematic).toContainText(PROMPT);
+  // A first-time player can only continue once the prompt has finished typing.
+  await expect(cinematic).toHaveAttribute("data-progress", String(PROMPT.length));
   await page.keyboard.press("Enter");
   await expect(page.getByTestId("boot")).toContainText("PRESS ANY KEY", { timeout: 20_000 });
   await page.keyboard.press("Enter");
