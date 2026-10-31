@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { wrapText } from "@/components/crt/dotMatrixLayout";
+import { caretCell, lineStarts, wrapText } from "@/components/crt/dotMatrixLayout";
 import { GLYPH_HEIGHT, GLYPH_WIDTH, glyphFor } from "@/components/crt/font5x7";
 
 interface DotMatrixProps {
@@ -15,10 +15,20 @@ interface DotMatrixProps {
   readonly align?: "left" | "center";
   readonly className?: string;
   readonly label?: string;
+  /** Draw only the first N characters; the layout stays that of the whole text, so words never jump lines. */
+  readonly reveal?: number;
+  /** A typing caret after the revealed characters: solid while keys land, blinking at rest. */
+  readonly caret?: "solid" | "blink";
 }
 
 const CELL = GLYPH_WIDTH + 1;
 const LINE = GLYPH_HEIGHT + 2;
+
+function drawBlock(ctx: CanvasRenderingContext2D, left: number, top: number, pitch: number, size: number): void {
+  for (let y = 0; y < GLYPH_HEIGHT - 1; y += 1) {
+    for (let x = 0; x < GLYPH_WIDTH; x += 1) ctx.fillRect((left + x) * pitch, (top + y) * pitch, size, size);
+  }
+}
 
 /** Glowing LED dot-matrix text drawn from a hand-made 5x7 character set. */
 export default function DotMatrix({
@@ -31,6 +41,8 @@ export default function DotMatrix({
   align = "center",
   className,
   label,
+  reveal,
+  caret,
 }: DotMatrixProps) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -45,17 +57,19 @@ export default function DotMatrix({
     return () => observer.disconnect();
   }, []);
 
+  const blinking = cursor || caret === "blink";
   useEffect(() => {
-    if (!cursor) return;
+    if (!blinking) return;
     const id = window.setInterval(() => setCursorOn((value) => !value), 530);
     return () => window.clearInterval(id);
-  }, [cursor]);
+  }, [blinking]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas || !width) return;
     const measure = (value: string) => [...value].length * CELL - 1;
-    const cursorCols = cursor ? CELL : 0;
+    const typing = reveal !== undefined;
+    const cursorCols = cursor || caret ? CELL : 0;
     // Shrink the dots (never the words) until the longest word fits the width.
     const longestWord = Math.max(...text.split(/\s+/).map(measure)) + cursorCols;
     let size = dot;
@@ -67,8 +81,12 @@ export default function DotMatrix({
     const pitch = size + spacing;
     const maxCols = Math.max(CELL, Math.floor(width / pitch));
     const lines = wrapText(text, measure, maxCols - cursorCols);
-    const lineCols = lines.map((line, index) => measure(line) + (index === lines.length - 1 ? cursorCols : 0));
-    const cols = Math.max(1, ...lineCols);
+    // While typing, every line keeps room for the caret and the text stays centred on its final layout.
+    const lineCols = lines.map((line, index) => measure(line) + (!typing && index === lines.length - 1 ? cursorCols : 0));
+    const cols = Math.max(1, ...lineCols) + (typing ? cursorCols : 0);
+    const span = typing ? cols - cursorCols : cols;
+    const starts = lineStarts(text, lines);
+    const caretAt = typing && caret && (caret === "solid" || cursorOn) ? caretCell(lines, starts, reveal) : null;
     const rows = lines.length * LINE - 2;
 
     const ratio = window.devicePixelRatio || 1;
@@ -85,9 +103,10 @@ export default function DotMatrix({
     ctx.fillStyle = color;
 
     lines.forEach((line, lineIndex) => {
-      const offset = align === "center" ? Math.floor((cols - lineCols[lineIndex]) / 2) : 0;
+      const offset = align === "center" ? Math.floor((span - lineCols[lineIndex]) / 2) : 0;
       const top = lineIndex * LINE;
       [...line].forEach((char, charIndex) => {
+        if (typing && starts[lineIndex] + charIndex >= reveal) return;
         const glyph = glyphFor(char);
         const left = offset + charIndex * CELL;
         glyph.forEach((row, y) =>
@@ -96,14 +115,10 @@ export default function DotMatrix({
           }),
         );
       });
-      if (cursor && cursorOn && lineIndex === lines.length - 1) {
-        const left = offset + lineCols[lineIndex] - GLYPH_WIDTH;
-        for (let y = 0; y < GLYPH_HEIGHT - 1; y += 1) {
-          for (let x = 0; x < GLYPH_WIDTH; x += 1) ctx.fillRect((left + x) * pitch, (top + y) * pitch, size, size);
-        }
-      }
+      if (!typing && cursor && cursorOn && lineIndex === lines.length - 1) drawBlock(ctx, offset + lineCols[lineIndex] - GLYPH_WIDTH, top, pitch, size);
+      if (caretAt && caretAt.line === lineIndex) drawBlock(ctx, offset + caretAt.col * CELL, top, pitch, size);
     });
-  }, [text, width, dot, gap, color, cursor, cursorOn, align]);
+  }, [text, width, dot, gap, color, cursor, cursorOn, align, reveal, caret]);
 
   return (
     <div ref={wrapRef} className={className} style={{ width: "100%" }}>

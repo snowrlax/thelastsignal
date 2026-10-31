@@ -16,7 +16,10 @@ export type Cue =
   | "powerOff"
   | "vhs"
   | "takeover"
-  | "beep";
+  | "beep"
+  | "type"
+  | "typeSpace"
+  | "carriage";
 
 type Ctx = AudioContext;
 
@@ -181,6 +184,24 @@ class SoundEngine {
     switch (cue) {
       case "key":
         this.noiseBurst(t, 0.03, 0.09, "bandpass", 1_800 + Math.random() * 1_400, 2.5);
+        break;
+      case "type": {
+        // A soft typewriter strike: the typebar's snap and a little body thump, never twice the same.
+        const level = 0.032 + Math.random() * 0.02;
+        this.noiseBurst(t, 0.018, level, "bandpass", 2_300 + Math.random() * 900, 3.5);
+        this.noiseBurst(t + 0.004, 0.035, level * 0.45, "lowpass", 700);
+        this.tone(t, 0.035, 115 + Math.random() * 35, 0.011);
+        break;
+      }
+      case "typeSpace":
+        this.noiseBurst(t, 0.03, 0.024, "bandpass", 650 + Math.random() * 150, 1.2);
+        this.tone(t, 0.04, 85, 0.011);
+        break;
+      case "carriage":
+        // Carriage return: a faint ratchet sliding back, then the stop.
+        for (let i = 0; i < 6; i += 1) this.noiseBurst(t + i * 0.028, 0.01, 0.013, "highpass", 3_000);
+        this.noiseBurst(t, 0.2, 0.011, "lowpass", 450);
+        this.noiseBurst(t + 0.2, 0.03, 0.028, "bandpass", 900, 1.5);
         break;
       case "enter":
         this.noiseBurst(t, 0.06, 0.14, "bandpass", 900, 1.5);

@@ -65,7 +65,17 @@ app/api/         /api/dialogue (character lines), /api/runs (anonymous stats), /
 
 **The model never touches game state.** The engine owns every file, process, timer, flag and ending. The model is only asked to *voice* a story beat that the engine already decided. The client sends an event id and a fixed set of facts, not a prompt. The server builds the prompt from canon, enforces a knowledge gate so the twist cannot leak early, and sanitizes the reply (length, no out-of-character text, no invented numbers or commands). If the model is slow, unavailable or off-script, the authored line is used and nothing waits on it.
 
-Everything you hear is synthesized live with the Web Audio API: the CRT hum, key clicks, drive seeks, radio static, warning tones. There are no audio files.
+Everything you hear is synthesized live with the Web Audio API: the CRT hum, the soft typewriter strikes and carriage returns as the opening types itself out, key clicks, drive seeks, radio static, warning tones. There are no audio files.
+
+## Deploying (Vercel)
+
+1. On vercel.com choose **Add New → Project** and import this GitHub repository. Vercel detects Next.js; keep the default build settings. `npm install` runs `prisma generate` for you.
+2. Under **Settings → Environment Variables**, add `OLLAMA_API_KEY` and `DATABASE_URL` (and the optional model variables) for Production and Preview.
+3. Deploy. Every push to `main` then deploys to production, and every other branch gets a preview URL.
+
+For Supabase on serverless functions, prefer the **transaction pooler** connection string (port `6543`) with `?pgbouncer=true&connection_limit=1` appended. The stats table only needs to be created once (`npm run db:push`). Placing the functions in the same region as the database (**Settings → Functions → Region**) keeps the stats calls fast. Rate limits are kept in memory per function instance, which is enough for a game like this but not a hard global cap.
+
+From a terminal instead: `npx vercel link`, `npx vercel env add OLLAMA_API_KEY` (repeat for each variable), then `npx vercel --prod`.
 
 ## Tests
 
