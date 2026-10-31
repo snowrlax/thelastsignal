@@ -4,7 +4,7 @@ import { sanitizeDialogue } from "@/game/story/sanitize";
 import { dialogueRequestSchema, type ApiEnvelope } from "@/game/story/schema";
 import { aiHintFor } from "@/game/story/triggers";
 import { sanitizeCallsign } from "@/game/engine";
-import { chatCompletion } from "@/libs/ollama";
+import { chatCompletion } from "@/libs/llm";
 import { clientKey, createRateLimiter, GLOBAL_KEY, readLimitedJson } from "@/libs/rateLimit";
 
 interface DialogueData {

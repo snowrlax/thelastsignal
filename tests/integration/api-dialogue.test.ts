@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const chatCompletion = vi.fn();
-vi.mock("@/libs/ollama", () => ({ chatCompletion: (...args: unknown[]) => chatCompletion(...args) }));
+vi.mock("@/libs/llm", () => ({ chatCompletion: (...args: unknown[]) => chatCompletion(...args) }));
 
 const { POST } = await import("@/app/api/dialogue/route");
 
