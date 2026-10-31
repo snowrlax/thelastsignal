@@ -1,7 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const chatCompletion = vi.fn();
-vi.mock("@/libs/llm", () => ({ chatCompletion: (...args: unknown[]) => chatCompletion(...args) }));
+vi.mock("@/libs/llm", () => ({
+  generateLine: async (...args: unknown[]) => {
+    const text = await chatCompletion(...args);
+    return { text, target: text ? { provider: "ollama", model: "test-model" } : null, attempts: [] };
+  },
+}));
 
 const { POST } = await import("@/app/api/dialogue/route");
 
@@ -35,14 +40,14 @@ describe("POST /api/dialogue", () => {
     expect(await response.json()).toEqual({ success: true, data: { text: "There. 218. It is eating my memories, Raven.", source: "ai" }, error: null });
     const [messages, options] = chatCompletion.mock.calls[0];
     expect(messages[0].content).toContain("M_VEGA");
-    expect(options).toEqual({ maxTokens: 160 });
+    expect(options).toEqual({ maxTokens: 160, temperature: 0.85 });
   });
 
   it("asks HOLLOW for short alerts", async () => {
     chatCompletion.mockResolvedValue("process 404 statements are not evidence");
     const response = await POST(request({ ...valid, speaker: "hollow", event: "inspect_persona" }));
     expect((await response.json()).data.text).toBe("PROCESS 404 STATEMENTS ARE NOT EVIDENCE");
-    expect(chatCompletion.mock.calls[0][1]).toEqual({ maxTokens: 60 });
+    expect(chatCompletion.mock.calls[0][1]).toEqual({ maxTokens: 60, temperature: 0.85 });
   });
 
   it("falls back (503) when the model is unavailable or breaks character", async () => {

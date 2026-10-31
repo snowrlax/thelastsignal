@@ -23,7 +23,11 @@ const pixel = Pixelify_Sans({
   display: "swap",
 });
 
+/** Absolute base for social preview images: SITE_URL, else Render's own URL, else local. */
+const siteUrl = process.env.SITE_URL || process.env.RENDER_EXTERNAL_URL || "http://localhost:3000";
+
 export const metadata: Metadata = {
+  metadataBase: new URL(siteUrl),
   title: "THE LAST SIGNAL",
   description:
     "A short interactive psychological horror experience. An abandoned research computer, a voice that claims to be its creator, and a process you must not kill.",
