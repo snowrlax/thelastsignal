@@ -76,17 +76,19 @@ Every sound effect is synthesized live with the Web Audio API: the CRT hum, the 
 
 **Optional voices (ElevenLabs).** With `ELEVENLABS_API_KEY` set, Dr. Ines Vega's authentic recordings are pre-rendered with Eleven v3 (`npm run voice:render`), where stage directions such as *(laughs)* become audio tags. They play off a hissing, wow-and-flutter "tape" while the transcript scrolls in sync with ElevenLabs' character timestamps. M_VEGA speaks every message live through the terminal's speaker with Flash v2.5. It's the same voice with the stability turned up and the style turned off, so it sounds slightly too steady: a voiceprint "99.1% synthesized from source." `/api/voice` only speaks lines the server wrote (model lines signed by `/api/dialogue`, or authored lines with nothing but the player's callsign filled in), and it's rate-limited per client, per minute, per hour and per day, so it can't be used as a free text-to-speech proxy. HOLLOW stays text: it's a system process.
 
-## Deploying (Render)
+## Deploying
 
-The repo includes a Render Blueprint ([`render.yaml`](render.yaml)).
+**Live:** https://thelastsignal.vercel.app
 
-1. On render.com choose **New → Blueprint** and select this repository.
-2. Render asks for each secret once: `OLLAMA_API_KEY`, `DIGITALOCEAN_INFERENCE_KEY`, `ELEVENLABS_API_KEY`, `SENTRY_DSN`, `DATABASE_URL` and `SITE_URL`. Leave any of them empty to switch that integration off. `VOICE_SIGNING_SECRET` is generated for you.
-3. Apply. Render builds with `npm ci && npm run build`, health-checks `/api`, and redeploys `main` only after the GitHub Actions checks pass (`autoDeployTrigger: checksPass`).
+The game is deployed on Vercel. Every push gets a preview URL, and `main` deploys to production.
 
-The service runs as one long-lived Node process, so the in-memory rate limits act as a real global cap, and the Supabase session pooler string (port `5432`) works as is. The stats table only needs to be created once (`npm run db:push`). To use a custom domain such as a `.tech` one, add it under **Settings → Custom Domains**, point a CNAME at the `onrender.com` host, and set `SITE_URL` to it so social previews use it.
+1. On vercel.com choose **Add New → Project** and import this repository. Vercel detects Next.js; keep the defaults. `npm install` runs `prisma generate`.
+2. Under **Settings → Environment Variables**, add `OLLAMA_API_KEY`, `SENTRY_DSN` and `DATABASE_URL` (plus any optional ones) for Production and Preview. `SENTRY_DSN` is read at build time for the browser too, so redeploy after adding it.
+3. Deploy. Social previews use the production URL automatically (`VERCEL_PROJECT_PRODUCTION_URL`), or `SITE_URL` if you set it.
 
-Vercel also works: import the repo and add the same environment variables. On serverless functions, prefer the Supabase transaction pooler (port `6543`) with `?pgbouncer=true&connection_limit=1`.
+On serverless functions, prefer the Supabase **transaction pooler** (port `6543`) with `?pgbouncer=true&connection_limit=1`. The stats table only needs to be created once (`npm run db:push`). Rate limits are kept in memory per function instance, which is enough for a game like this but not a hard global cap.
+
+Render works too: [`render.yaml`](render.yaml) is a Blueprint (New → Blueprint) that deploys `main` only after the GitHub Actions checks pass.
 
 ## Tests
 

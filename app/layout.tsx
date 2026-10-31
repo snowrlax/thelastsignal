@@ -23,8 +23,9 @@ const pixel = Pixelify_Sans({
   display: "swap",
 });
 
-/** Absolute base for social preview images: SITE_URL, else Render's own URL, else local. */
-const siteUrl = process.env.SITE_URL || process.env.RENDER_EXTERNAL_URL || "http://localhost:3000";
+/** Absolute base for social preview images: SITE_URL, else the host's own production URL, else local. */
+const vercelUrl = process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : undefined;
+const siteUrl = process.env.SITE_URL || vercelUrl || process.env.RENDER_EXTERNAL_URL || "http://localhost:3000";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
