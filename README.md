@@ -35,12 +35,15 @@ npm run db:push              # optional: creates the anonymous stats table
 npm run dev                  # http://localhost:3000
 ```
 
-Both integrations are optional. Without `OLLAMA_API_KEY` every line is authored dialogue. Without `DATABASE_URL` the ending screen simply skips the "operators who preserved the archive" figure.
+Every integration is optional and switches on only when its key is set. With no keys at all, every line is authored dialogue and the game is still completable from start to finish. Without `DATABASE_URL`, the ending screen skips the "operators who preserved the archive" figure.
 
 | Variable | Purpose |
 |---|---|
 | `OLLAMA_API_KEY` | Ollama Cloud key for M_VEGA and HOLLOW's live dialogue |
-| `OLLAMA_MODEL` / `OLLAMA_FALLBACK_MODEL` | open-weight models (default `gemma4:31b`, then `gpt-oss:20b`) |
+| `OLLAMA_MODEL` / `OLLAMA_FALLBACK_MODEL` | open-weight models (default `gemma4:31b`, then `gpt-oss:20b`). Set `OLLAMA_HOST=http://localhost:11434` to use a local Ollama |
+| `DIGITALOCEAN_INFERENCE_KEY` | DigitalOcean serverless inference model access key: the same Gemma 4 weights on a second provider (`DIGITALOCEAN_MODEL`, default `gemma-4-31B-it`) |
+| `DIALOGUE_PRIMARY_PROVIDER` | `ollama` (default) or `digitalocean` to choose which provider is tried first |
+| `SENTRY_DSN` | Sentry agent tracing for the dialogue pipeline. `SENTRY_RECORD_DIALOGUE=true` also attaches prompts and lines (off by default) |
 | `DATABASE_URL` | Postgres for anonymous run outcomes (no names or personal data are stored) |
 
 ## How it is built
@@ -59,23 +62,27 @@ components/
   screens/       landing → identify → cinematic → boot → terminal → ending
   terminal/      status bar, scrollback, message windows, prompt, side panel, manual
 hooks/           zustand store around the engine; printer, dialogue, game loop, ending sequence
-libs/            Ollama client, Prisma, rate limiting, Web Audio synth, storage, session report
+libs/            model provider chain (llm/), Sentry agent tracing, Prisma, rate limiting, Web Audio synth, storage
 app/api/         /api/dialogue (character lines), /api/runs (anonymous stats), /api (health)
 ```
 
 **The model never touches game state.** The engine owns every file, process, timer, flag and ending. The model is only asked to *voice* a story beat that the engine already decided. The client sends an event id and a fixed set of facts, not a prompt. The server builds the prompt from canon, enforces a knowledge gate so the twist cannot leak early, and sanitizes the reply (length, no out-of-character text, no invented numbers or commands). If the model is slow, unavailable or off-script, the authored line is used and nothing waits on it.
 
+Lines come from a chain of open-weight models that share one 4.5-second budget: **Gemma 4 31B on Ollama Cloud**, then **the same Gemma 4 weights on DigitalOcean serverless inference**, then **gpt-oss-20b**. Every attempt except the last is capped, so one hung provider can't use up the whole budget. Each line is traced in **Sentry** as an `invoke_agent` span (M_VEGA or HOLLOW), with one `gen_ai.chat` span per attempt (provider, model, tokens, latency, failure code) and a `gen_ai.decide` span for the sanitizer's verdict.
+
 Everything you hear is synthesized live with the Web Audio API: the CRT hum, the soft typewriter strikes and carriage returns as the opening types itself out, key clicks, drive seeks, radio static, warning tones. There are no audio files.
 
-## Deploying (Vercel)
+## Deploying (Render)
 
-1. On vercel.com choose **Add New → Project** and import this GitHub repository. Vercel detects Next.js; keep the default build settings. `npm install` runs `prisma generate` for you.
-2. Under **Settings → Environment Variables**, add `OLLAMA_API_KEY` and `DATABASE_URL` (and the optional model variables) for Production and Preview.
-3. Deploy. Every push to `main` then deploys to production, and every other branch gets a preview URL.
+The repo includes a Render Blueprint ([`render.yaml`](render.yaml)).
 
-For Supabase on serverless functions, prefer the **transaction pooler** connection string (port `6543`) with `?pgbouncer=true&connection_limit=1` appended. The stats table only needs to be created once (`npm run db:push`). Placing the functions in the same region as the database (**Settings → Functions → Region**) keeps the stats calls fast. Rate limits are kept in memory per function instance, which is enough for a game like this but not a hard global cap.
+1. On render.com choose **New → Blueprint** and select this repository.
+2. Render asks for each secret once: `OLLAMA_API_KEY`, `DIGITALOCEAN_INFERENCE_KEY`, `ELEVENLABS_API_KEY`, `SENTRY_DSN`, `DATABASE_URL` and `SITE_URL`. Leave any of them empty to switch that integration off. `VOICE_SIGNING_SECRET` is generated for you.
+3. Apply. Render builds with `npm ci && npm run build`, health-checks `/api`, and redeploys `main` only after the GitHub Actions checks pass (`autoDeployTrigger: checksPass`).
 
-From a terminal instead: `npx vercel link`, `npx vercel env add OLLAMA_API_KEY` (repeat for each variable), then `npx vercel --prod`.
+The service runs as one long-lived Node process, so the in-memory rate limits act as a real global cap, and the Supabase session pooler string (port `5432`) works as is. The stats table only needs to be created once (`npm run db:push`). To use a custom domain such as a `.tech` one, add it under **Settings → Custom Domains**, point a CNAME at the `onrender.com` host, and set `SITE_URL` to it so social previews use it.
+
+Vercel also works: import the repo and add the same environment variables. On serverless functions, prefer the Supabase transaction pooler (port `6543`) with `?pgbouncer=true&connection_limit=1`.
 
 ## Tests
 

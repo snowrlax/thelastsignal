@@ -32,7 +32,7 @@ npm run db:push        # create/update the signal_runs table from prisma/schema.
 
 - Next.js 16.2 (App Router), React 19, TypeScript strict, Tailwind CSS 4 (CSS-configured; most styling is hand-written CRT CSS in `app/globals.css`)
 - Fonts via `next/font/google`: VT323 (terminal), League Gothic (title), Pixelify Sans (handset soft keys); the LED dot-matrix is a hand-drawn 5x7 font in `components/crt/font5x7.ts`
-- zustand (client state), zod (API validation), Prisma 5 + Postgres (anonymous run stats), Ollama Cloud (open-weight dialogue)
+- zustand (client state), zod (API validation), Prisma 5 + Postgres (anonymous run stats), open-weight dialogue via a provider chain in `libs/llm/` (Ollama Cloud, DigitalOcean serverless inference), Sentry agent tracing (`libs/tracing.ts`, `instrumentation.ts`)
 
 ## Next.js 16
 
@@ -40,4 +40,4 @@ This is not the Next.js in your training data. Read `node_modules/next/dist/docs
 
 ## Secrets
 
-`.env.local` only (see `.env.example`): `OLLAMA_API_KEY`, `OLLAMA_MODEL`, `OLLAMA_FALLBACK_MODEL`, `OLLAMA_HOST`, `DATABASE_URL`. Never commit them, never expose them to client code.
+`.env.local` only (see `.env.example` for the full list): `OLLAMA_*`, `DIGITALOCEAN_*`, `SENTRY_*`, `DATABASE_URL`. Production env vars are declared in `render.yaml`. Never commit them, never expose them to client code.
