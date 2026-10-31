@@ -7,10 +7,13 @@ import { sanitizeCallsign } from "@/game/engine";
 import { generateLine } from "@/libs/llm";
 import { clientKey, createRateLimiter, GLOBAL_KEY, readLimitedJson } from "@/libs/rateLimit";
 import { traceDialogue, tracedAttempts, tracedGuardrail, type DialogueTraceMeta } from "@/libs/tracing";
+import { signVoiceLine } from "@/libs/voiceToken";
 
 interface DialogueData {
   readonly text: string;
   readonly source: "ai";
+  /** Lets /api/voice speak this exact M_VEGA line. Only present when ElevenLabs is configured. */
+  readonly voiceToken?: string;
 }
 
 const MAX_BODY_BYTES = 8_192;
@@ -69,5 +72,6 @@ export async function POST(request: Request) {
   });
   if (!text) return respond({ success: false, data: null, error: "unavailable" }, 503);
 
-  return respond({ success: true, data: { text, source: "ai" }, error: null }, 200);
+  const voiceToken = dialogue.speaker === "vega" ? signVoiceLine("vega", text) : null;
+  return respond({ success: true, data: { text, source: "ai", ...(voiceToken ? { voiceToken } : {}) }, error: null }, 200);
 }

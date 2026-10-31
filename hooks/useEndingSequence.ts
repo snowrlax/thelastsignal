@@ -2,14 +2,26 @@
 
 import { useEffect } from "react";
 import { badEndingLines, goodEndingLines } from "@/game/story/endings";
+import type { OutputLine } from "@/game/types";
 import { useGameStore } from "@/hooks/useGameStore";
 import { sound } from "@/libs/audio";
+import { vegaVoice } from "@/libs/voicePlayer";
+import { vegaSpeech } from "@/libs/voiceText";
 
 const wait = (ms: number) => new Promise<void>((resolve) => window.setTimeout(resolve, ms));
 
 async function until(condition: () => boolean, timeoutMs: number): Promise<void> {
   const started = Date.now();
   while (!condition() && Date.now() - started < timeoutMs) await wait(100);
+}
+
+/** The takeover ends in M_VEGA's own voice, from the moment her first line prints. */
+async function speakTakeover(lines: readonly OutputLine[], isCancelled: () => boolean): Promise<void> {
+  const speech = vegaSpeech(lines);
+  const first = lines.find((line) => line.kind === "vega" && speech?.startsWith(line.text.trim()));
+  if (!speech || !first) return;
+  await until(() => isCancelled() || useGameStore.getState().transcript.includes(first.text), 40_000);
+  if (!isCancelled()) void vegaVoice().speak(speech, null);
 }
 
 const queueEmpty = () => useGameStore.getState().queue.length === 0;
@@ -52,7 +64,9 @@ export function useEndingSequence(): void {
       sound().play("takeover");
       const state = useGameStore.getState();
       useGameStore.setState({ glitch: { level: "high", nonce: state.glitch.nonce + 1 } });
-      state.enqueueLines(badEndingLines(state.game?.playerName ?? "OPERATOR", ending.cause ?? "timeout"));
+      const lines = badEndingLines(state.game?.playerName ?? "OPERATOR", ending.cause ?? "timeout");
+      state.enqueueLines(lines);
+      void speakTakeover(lines, () => cancelled);
       await until(queueEmpty, 40_000);
       await wait(1_600);
       if (cancelled) return;

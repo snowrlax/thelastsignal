@@ -8,6 +8,7 @@ import type { Speaker } from "@/game/story/triggers";
 import type { Ending, GameState, LineKind, LossCause, OutputLine, StepResult, StoryEvent } from "@/game/types";
 import { sound, type Cue } from "@/libs/audio";
 import type { ConversationEntry } from "@/libs/dialogueClient";
+import { tapeDeck } from "@/libs/voiceTape";
 
 export type Screen = "landing" | "identify" | "cinematic" | "boot" | "terminal" | "ending";
 
@@ -107,6 +108,12 @@ function silenceForReveal(game: GameState): void {
   setTimeout(() => sound().setHumLevel(level), REVEAL_SILENCE_MS);
 }
 
+/** `play` output is paced to Ines's tape when one is ready (see libs/voiceTape.ts). */
+function outputLines(result: StepResult): readonly OutputLine[] {
+  const recording = result.effects.find((effect) => effect.type === "recording");
+  return recording?.type === "recording" ? tapeDeck().arm(result.lines, recording.id) : result.lines;
+}
+
 function lineText(item: OutputLine): string {
   return item.text;
 }
@@ -115,7 +122,7 @@ export const useGameStore = create<GameStore>()((set, get) => {
   /** Applies one engine step: output, effects, story events, sound. */
   function applyStep(result: StepResult): void {
     const state = get();
-    const queue: QueueEntry[] = [...state.queue, ...result.lines.map((line): QueueEntry => ({ type: "line", line }))];
+    const queue: QueueEntry[] = [...state.queue, ...outputLines(result).map((line): QueueEntry => ({ type: "line", line }))];
     let game = result.state;
     let ending = state.ending;
     let glitch = state.glitch;
