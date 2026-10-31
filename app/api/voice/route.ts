@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import type { ApiEnvelope } from "@/game/story/schema";
-import { synthesizeSpeech, voiceConfig, type VoiceConfig } from "@/libs/elevenlabs";
+import { dailyLineLimit, synthesizeSpeech, voiceConfig, type VoiceConfig } from "@/libs/elevenlabs";
 import { clientKey, createRateLimiter, GLOBAL_KEY, readLimitedJson } from "@/libs/rateLimit";
 import { createAudioCache } from "@/libs/voiceCache";
 import { isAuthoredVegaLine } from "@/libs/voiceLines";
@@ -11,8 +11,12 @@ import { verifyVoiceLine } from "@/libs/voiceToken";
 const MAX_BODY_BYTES = 2_048;
 const UPSTREAM_TIMEOUT_MS = 4_000;
 const limiter = createRateLimiter({ limit: 24, windowMs: 60_000 });
-/** Backstops for the paid API: synthesized (uncached) lines across every client, per minute and per hour. */
-const globalLimiters = [createRateLimiter({ limit: 120, windowMs: 60_000 }), createRateLimiter({ limit: 1_200, windowMs: 3_600_000 })];
+/** Backstops for the paid API: synthesized (uncached) lines across every client, per minute, hour and day. */
+const globalLimiters = [
+  createRateLimiter({ limit: 120, windowMs: 60_000 }),
+  createRateLimiter({ limit: 1_200, windowMs: 3_600_000 }),
+  createRateLimiter({ limit: dailyLineLimit(), windowMs: 86_400_000 }),
+];
 const cache = createAudioCache({ maxEntries: 160, maxBytes: 12 * 1024 * 1024 });
 
 /** One M_VEGA line. `token` vouches for a model line; authored lines are checked against the script. */

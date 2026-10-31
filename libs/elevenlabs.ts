@@ -39,6 +39,14 @@ export function voiceConfig(env: VoiceEnv = process.env): VoiceConfig | null {
   return { apiKey, voiceId, modelId };
 }
 
+export const DEFAULT_DAILY_LINE_LIMIT = 1_500;
+
+/** Lines synthesized per day across all players (VOICE_DAILY_LINE_LIMIT), the last guard on credits. */
+export function dailyLineLimit(env: VoiceEnv = process.env): number {
+  const parsed = Number(env.VOICE_DAILY_LINE_LIMIT?.trim() || DEFAULT_DAILY_LINE_LIMIT);
+  return Number.isInteger(parsed) && parsed > 0 && parsed <= 1_000_000 ? parsed : DEFAULT_DAILY_LINE_LIMIT;
+}
+
 /**
  * One line of M_VEGA as mp3. Never throws: any failure returns null and the
  * line simply stays silent.

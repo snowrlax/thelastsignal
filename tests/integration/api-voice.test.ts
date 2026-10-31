@@ -7,7 +7,7 @@ vi.mock("@/libs/ollama", () => ({ chatCompletion: (...args: unknown[]) => chatCo
 const voiceRoute = await import("@/app/api/voice/route");
 const dialogueRoute = await import("@/app/api/dialogue/route");
 const { signVoiceLine } = await import("@/libs/voiceToken");
-const { voiceConfig } = await import("@/libs/elevenlabs");
+const { dailyLineLimit, voiceConfig } = await import("@/libs/elevenlabs");
 
 const AUTHORED = "It's me. Ines Vega. I built this machine, RAVEN. Something has locked me out of my own archive, and I can't reach it alone.";
 
@@ -158,6 +158,14 @@ describe("voice configuration", () => {
     });
     expect(voiceConfig({ ELEVENLABS_API_KEY: "k", ELEVENLABS_VOICE_ID: "../../v1/user" })).toBeNull();
     expect(voiceConfig({ ELEVENLABS_API_KEY: "  " })).toBeNull();
+  });
+
+  it("reads the daily line budget, falling back on nonsense", () => {
+    expect(dailyLineLimit({})).toBe(1_500);
+    expect(dailyLineLimit({ VOICE_DAILY_LINE_LIMIT: "300" })).toBe(300);
+    expect(dailyLineLimit({ VOICE_DAILY_LINE_LIMIT: "-5" })).toBe(1_500);
+    expect(dailyLineLimit({ VOICE_DAILY_LINE_LIMIT: "lots" })).toBe(1_500);
+    expect(dailyLineLimit({ VOICE_DAILY_LINE_LIMIT: "2.5" })).toBe(1_500);
   });
 });
 
