@@ -1,40 +1,49 @@
-import type { Metadata } from "next";
-import { Gabarito } from "next/font/google";
-import { Geist_Mono } from "next/font/google";
-import AuthProvider from "@/components/AuthProvider";
+import type { Metadata, Viewport } from "next";
+import { League_Gothic, Pixelify_Sans, VT323 } from "next/font/google";
 import "./globals.css";
 
-const gabarito = Gabarito({
-  variable: "--font-gabarito",
+const terminal = VT323({
+  variable: "--font-vt323",
+  subsets: ["latin", "latin-ext"],
+  weight: "400",
+  display: "swap",
+});
+
+const display = League_Gothic({
+  variable: "--font-league-gothic",
   subsets: ["latin"],
   weight: "variable",
   display: "swap",
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const pixel = Pixelify_Sans({
+  variable: "--font-pixelify",
   subsets: ["latin"],
+  weight: "variable",
+  display: "swap",
 });
 
 export const metadata: Metadata = {
-  title: "ShipNext",
-  description: "Ship your SaaS in days, not weeks",
+  title: "THE LAST SIGNAL",
+  description:
+    "A short interactive psychological horror experience. An abandoned research computer, a voice that claims to be its creator, and a process you must not kill.",
+  openGraph: {
+    title: "THE LAST SIGNAL",
+    description: "November 2. The machine was never meant to speak back.",
+    type: "website",
+  },
 };
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+export const viewport: Viewport = {
+  themeColor: "#000000",
+  width: "device-width",
+  initialScale: 1,
+};
+
+export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html
-      lang="en"
-      data-theme="shipnext"
-      className={`${gabarito.variable} ${geistMono.variable} h-full antialiased`}
-    >
-      <body className="min-h-full flex flex-col bg-base-100 text-base-content">
-        <AuthProvider>{children}</AuthProvider>
-      </body>
+    <html lang="en" className={`${terminal.variable} ${display.variable} ${pixel.variable}`}>
+      <body>{children}</body>
     </html>
   );
 }

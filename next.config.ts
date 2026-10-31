@@ -1,17 +1,20 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  images: {
-    remotePatterns: [
+  devIndicators: false,
+  poweredByHeader: false,
+  async headers() {
+    return [
       {
-        protocol: "https",
-        hostname: "lh3.googleusercontent.com",
+        source: "/:path*",
+        headers: [
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          { key: "X-Frame-Options", value: "SAMEORIGIN" },
+          { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+        ],
       },
-      {
-        protocol: "https",
-        hostname: "*",
-      },
-    ],
+    ];
   },
 };
 
