@@ -16,6 +16,7 @@ import { useEndingSequence } from "@/hooks/useEndingSequence";
 import { useGameLoop } from "@/hooks/useGameLoop";
 import { useGameStore } from "@/hooks/useGameStore";
 import { usePrinter } from "@/hooks/usePrinter";
+import { useVoice } from "@/hooks/useVoice";
 import { sound } from "@/libs/audio";
 import { STORAGE_KEYS, writeFlag } from "@/libs/storage";
 
@@ -47,6 +48,7 @@ export default function TerminalScreen() {
   usePrinter(true);
   useDialogue(true);
   useEndingSequence();
+  useVoice(true);
 
   useEffect(() => {
     if (greeted.current) return;

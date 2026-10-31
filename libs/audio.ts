@@ -23,6 +23,13 @@ export type Cue =
 
 type Ctx = AudioContext;
 
+export interface VoiceBus {
+  readonly ctx: AudioContext;
+  readonly destination: AudioNode;
+  /** Two seconds of white noise, for tape hiss. */
+  readonly noise: AudioBuffer | null;
+}
+
 class SoundEngine {
   private ctx: Ctx | null = null;
   private master: GainNode | null = null;
@@ -47,6 +54,16 @@ class SoundEngine {
 
   get ready(): boolean {
     return this.ctx !== null;
+  }
+
+  get isMuted(): boolean {
+    return this.muted;
+  }
+
+  /** Where recorded speech plays: the master bus, so mute applies. Null before the first gesture. */
+  voiceBus(): VoiceBus | null {
+    if (!this.ctx || !this.master) return null;
+    return { ctx: this.ctx, destination: this.master, noise: this.noise };
   }
 
   setMuted(muted: boolean): void {
