@@ -15,6 +15,8 @@ export interface DialogueTraceMeta {
   readonly evidenceCount: number;
   readonly maxTokens: number;
   readonly temperature: number;
+  /** Opaque per-playthrough id: Sentry groups the run's lines into one conversation. */
+  readonly conversationId?: string;
 }
 
 export interface DialogueOutcome {
@@ -24,10 +26,14 @@ export interface DialogueOutcome {
 }
 
 /**
- * Prompts include the player's callsign and replies, so message content is
- * only attached to spans when SENTRY_RECORD_DIALOGUE=true.
+ * Prompts and lines are what make Sentry's Agent Tracing transcript useful, so
+ * they are attached by default. They include the player's callsign and replies:
+ * SENTRY_RECORD_DIALOGUE=false keeps them out of Sentry.
  */
-const recordContent = (): boolean => process.env.SENTRY_RECORD_DIALOGUE === "true";
+export const recordDialogue = (): boolean => process.env.SENTRY_RECORD_DIALOGUE !== "false";
+const recordContent = recordDialogue;
+
+const conversation = (meta: DialogueTraceMeta) => (meta.conversationId ? { "gen_ai.conversation.id": meta.conversationId } : {});
 
 const asJson = (value: unknown): string => JSON.stringify(value);
 
@@ -50,6 +56,7 @@ export function tracedAttempts(meta: DialogueTraceMeta, messages: readonly ChatM
           "gen_ai.request.max_tokens": meta.maxTokens,
           "gen_ai.request.temperature": meta.temperature,
           "gen_ai.agent.name": meta.agent,
+          ...conversation(meta),
           ...(recordContent()
             ? {
                 "gen_ai.system_instructions": messages.find((m) => m.role === "system")?.content ?? "",
@@ -105,6 +112,7 @@ export function traceDialogue(meta: DialogueTraceMeta, work: () => Promise<Dialo
         "story.event": meta.event,
         "story.phase": meta.phase,
         "story.evidence_count": meta.evidenceCount,
+        ...conversation(meta),
       },
     },
     async (span: Span) => {

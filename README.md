@@ -45,7 +45,7 @@ Every integration is optional and switches on only when its key is set. With no 
 | `DIGITALOCEAN_INFERENCE_KEY` | DigitalOcean serverless inference model access key: the same Gemma 4 weights on a second provider (`DIGITALOCEAN_MODEL`, default `gemma-4-31B-it`) |
 | `DIALOGUE_PRIMARY_PROVIDER` | `ollama` (default) or `digitalocean` to choose which provider is tried first |
 | `ELEVENLABS_API_KEY` | ElevenLabs voices for M_VEGA's live lines and Ines's recordings (`ELEVENLABS_VOICE_ID`, `ELEVENLABS_MODEL_ID`, `VOICE_DAILY_LINE_LIMIT` optional) |
-| `SENTRY_DSN` | Sentry agent tracing for the dialogue pipeline. `SENTRY_RECORD_DIALOGUE=true` also attaches prompts and lines (off by default) |
+| `SENTRY_DSN` | Sentry errors and agent tracing, server and browser (the browser gets the same DSN at build time). Prompts and lines are attached to agent spans; `SENTRY_RECORD_DIALOGUE=false` keeps them out |
 | `DATABASE_URL` | Postgres for anonymous run outcomes (no names or personal data are stored) |
 
 ## How it is built

@@ -43,6 +43,12 @@ describe("POST /api/dialogue", () => {
     expect(options).toEqual({ maxTokens: 160, temperature: 0.85 });
   });
 
+  it("accepts an opaque run id for conversation grouping and rejects anything else", async () => {
+    chatCompletion.mockResolvedValue("Mija, stay.");
+    expect((await POST(request({ ...valid, runId: "6f1d2c3b-4a5e-4f60-8a7b-9c0d1e2f3a4b" }))).status).toBe(200);
+    expect((await POST(request({ ...valid, runId: "not an id!" }))).status).toBe(400);
+  });
+
   it("asks HOLLOW for short alerts", async () => {
     chatCompletion.mockResolvedValue("process 404 statements are not evidence");
     const response = await POST(request({ ...valid, speaker: "hollow", event: "inspect_persona" }));

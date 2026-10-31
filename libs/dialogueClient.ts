@@ -9,7 +9,7 @@ export interface ConversationEntry {
 
 export const CLIENT_DIALOGUE_TIMEOUT_MS = 5_500;
 
-export function buildDialogueRequest(game: GameState, message: PlannedMessage, conversation: readonly ConversationEntry[]): DialogueRequest {
+export function buildDialogueRequest(game: GameState, message: PlannedMessage, conversation: readonly ConversationEntry[], runId = ""): DialogueRequest {
   const remaining = game.timer.running ? Math.round((game.timer.grace?.remainingMs ?? game.timer.remainingMs) / 1000) : null;
   return {
     speaker: message.speaker,
@@ -25,6 +25,7 @@ export function buildDialogueRequest(game: GameState, message: PlannedMessage, c
     remainingSeconds: remaining === null ? null : Math.min(3_600, Math.max(0, remaining)),
     recent: conversation.slice(-MAX_RECENT_MESSAGES).map((entry) => ({ speaker: entry.speaker, text: entry.text.slice(0, MAX_RECENT_TEXT) })),
     ...(message.playerText ? { playerMessage: message.playerText } : {}),
+    ...(runId ? { runId } : {}),
   };
 }
 

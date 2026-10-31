@@ -22,6 +22,8 @@ export const dialogueRequestSchema = z.object({
     .array(z.object({ speaker: z.enum(["vega", "hollow", "player"]), text: z.string().max(MAX_RECENT_TEXT) }))
     .max(MAX_RECENT_MESSAGES),
   playerMessage: z.string().trim().min(1).max(MAX_REPLY_LENGTH).optional(),
+  /** Opaque per-playthrough id, used only to group traces into one conversation. */
+  runId: z.string().regex(/^[a-z0-9-]{8,64}$/i).optional(),
 });
 
 export type DialogueRequest = z.infer<typeof dialogueRequestSchema>;

@@ -55,7 +55,7 @@ export function useDialogue(active: boolean): void {
       let reply: DialogueReply | null = null;
       try {
         const started = Date.now();
-        reply = message.useAi ? await fetchDialogueReply(buildDialogueRequest(game, message, store.conversation)) : null;
+        reply = message.useAi ? await fetchDialogueReply(buildDialogueRequest(game, message, store.conversation, store.runId)) : null;
         const elapsed = Date.now() - started;
         if (elapsed < MIN_RECEIVING_MS) await wait(MIN_RECEIVING_MS - elapsed);
       } finally {

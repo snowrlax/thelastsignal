@@ -3,6 +3,7 @@ import { wrapText } from "@/components/crt/dotMatrixLayout";
 import { GLYPH_HEIGHT, GLYPH_WIDTH, glyphFor } from "@/components/crt/font5x7";
 import { planMessages, INITIAL_DIALOGUE } from "@/game/story/director";
 import { buildDialogueRequest, fetchDialogueLine } from "@/libs/dialogueClient";
+import { dialogueRequestSchema } from "@/game/story/schema";
 import { clientKey, createRateLimiter } from "@/libs/rateLimit";
 import { buildReport, evidenceLabels } from "@/libs/report";
 import { newGame, runAll, startedGame } from "@/tests/helpers/game";
@@ -44,6 +45,14 @@ describe("dialogue client", () => {
     expect(request.playerMessage).toBe("hello");
     expect(request.remainingSeconds).toBeGreaterThan(0);
     expect(buildDialogueRequest(newGame(), { ...planned(), playerText: undefined }, []).remainingSeconds).toBeNull();
+  });
+
+  it("carries the playthrough's run id only when there is one, and the schema accepts it", () => {
+    const withRun = buildDialogueRequest(startedGame(), planned(), [], "6f1d2c3b-4a5e-4f60-8a7b-9c0d1e2f3a4b");
+    expect(withRun.runId).toBe("6f1d2c3b-4a5e-4f60-8a7b-9c0d1e2f3a4b");
+    expect(dialogueRequestSchema.safeParse(withRun).success).toBe(true);
+    expect(buildDialogueRequest(startedGame(), planned(), [])).not.toHaveProperty("runId");
+    expect(dialogueRequestSchema.safeParse({ ...withRun, runId: "<script>" }).success).toBe(false);
   });
 
   it("returns the model's text, or null on any failure", async () => {

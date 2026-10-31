@@ -51,7 +51,8 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllEnvs());
 
 describe("chat spans", () => {
-  it("records provider, model, usage and finish reason without message content by default", async () => {
+  it("records provider, model, usage and finish reason, and no content when SENTRY_RECORD_DIALOGUE=false", async () => {
+    vi.stubEnv("SENTRY_RECORD_DIALOGUE", "false");
     const attempt = await tracedAttempts(meta, messages)(gemma, async () => okAttempt);
     expect(attempt).toBe(okAttempt);
     expect(spans[0]).toMatchObject({
@@ -81,8 +82,7 @@ describe("chat spans", () => {
     expect(spans[0].status).toEqual({ code: 2, message: "timeout" });
   });
 
-  it("attaches prompts and replies only when SENTRY_RECORD_DIALOGUE=true", async () => {
-    vi.stubEnv("SENTRY_RECORD_DIALOGUE", "true");
+  it("attaches prompts and replies by default, for the Agent Tracing transcript", async () => {
     await tracedAttempts(meta, messages)(gemma, async () => okAttempt);
     expect(spans[0].attributes["gen_ai.system_instructions"]).toBe("canon for RAVEN");
     expect(JSON.parse(String(spans[0].attributes["gen_ai.input.messages"]))).toEqual([{ role: "user", content: "say something" }]);
@@ -131,9 +131,22 @@ describe("agent span", () => {
     expect(spans[1].attributes).not.toHaveProperty("gen_ai.provider.name");
   });
 
-  it("records the final line when content recording is on", async () => {
-    vi.stubEnv("SENTRY_RECORD_DIALOGUE", "true");
+  it("records the final line by default and leaves it out when recording is off", async () => {
     await traceDialogue(meta, async () => ({ result: result("Mija.", gemma), text: "Mija." }));
     expect(spans[0].attributes["gen_ai.output.messages"]).toBe('[{"role":"assistant","content":"Mija."}]');
+    vi.stubEnv("SENTRY_RECORD_DIALOGUE", "false");
+    await traceDialogue(meta, async () => ({ result: result("Mija.", gemma), text: "Mija." }));
+    expect(spans[1].attributes).not.toHaveProperty("gen_ai.output.messages");
+  });
+
+  it("groups a playthrough's lines into one conversation when a run id is present", async () => {
+    const withRun = { ...meta, conversationId: "3f2c9a1e-run" };
+    await traceDialogue(withRun, async () => {
+      await tracedAttempts(withRun, messages)(gemma, async () => okAttempt);
+      return { result: result("Mija.", gemma), text: "Mija." };
+    });
+    expect(spans.map((s) => s.attributes["gen_ai.conversation.id"])).toEqual(["3f2c9a1e-run", "3f2c9a1e-run"]);
+    await traceDialogue(meta, async () => ({ result: result("Mija.", gemma), text: "Mija." }));
+    expect(spans[2].attributes).not.toHaveProperty("gen_ai.conversation.id");
   });
 });

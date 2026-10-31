@@ -59,6 +59,7 @@ export async function POST(request: Request) {
     evidenceCount: dialogue.evidence.length,
     maxTokens: dialogue.speaker === "vega" ? 160 : 60,
     temperature: DIALOGUE_TEMPERATURE,
+    ...(dialogue.runId ? { conversationId: dialogue.runId } : {}),
   };
   const { text } = await traceDialogue(meta, async () => {
     const result = await generateLine(messages, { maxTokens: meta.maxTokens, temperature: meta.temperature }, tracedAttempts(meta, messages));

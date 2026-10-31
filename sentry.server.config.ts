@@ -6,7 +6,7 @@ import * as Sentry from "@sentry/nextjs";
  * span call is a no-op.
  */
 const dsn = process.env.SENTRY_DSN;
-const recordDialogue = process.env.SENTRY_RECORD_DIALOGUE === "true";
+const recordDialogue = process.env.SENTRY_RECORD_DIALOGUE !== "false";
 
 if (dsn) {
   const sampleRate = Number(process.env.SENTRY_TRACES_SAMPLE_RATE ?? "1");
@@ -14,7 +14,9 @@ if (dsn) {
     dsn,
     environment: process.env.SENTRY_ENVIRONMENT || process.env.NODE_ENV,
     tracesSampleRate: Number.isFinite(sampleRate) ? Math.min(1, Math.max(0, sampleRate)) : 1,
-    // Never attach IPs, cookies, headers or bodies; prompts are opt-in via SENTRY_RECORD_DIALOGUE.
+    debug: process.env.SENTRY_DEBUG === "true",
+    // Never attach IPs, cookies, headers or bodies. Prompts and lines are kept (Agent Tracing
+    // transcripts need them) unless SENTRY_RECORD_DIALOGUE=false.
     dataCollection: {
       userInfo: false,
       cookies: false,

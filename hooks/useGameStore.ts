@@ -44,6 +44,12 @@ export type EndingStage = "none" | "sequence" | "poweroff" | "epitaph" | "done";
 
 const MAX_ITEMS = 400;
 
+/** A random id that carries nothing about the player. */
+function newRunId(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") return crypto.randomUUID();
+  return Array.from({ length: 4 }, () => Math.floor(Math.random() * 0x100000000).toString(16).padStart(8, "0")).join("-");
+}
+
 interface GameStore {
   screen: Screen;
   playerName: string;
@@ -66,6 +72,8 @@ interface GameStore {
   runDurationMs: number;
   nextId: number;
   runSeed: number;
+  /** Opaque id for one playthrough; groups its dialogue as one conversation in tracing. */
+  runId: string;
 
   setScreen(screen: Screen): void;
   setPlayerName(name: string): void;
@@ -207,6 +215,7 @@ export const useGameStore = create<GameStore>()((set, get) => {
     runDurationMs: 0,
     nextId: 1,
     runSeed: 0,
+    runId: "",
 
     setScreen: (screen) => set({ screen }),
     setPlayerName: (playerName) => set({ playerName }),
@@ -233,6 +242,7 @@ export const useGameStore = create<GameStore>()((set, get) => {
         glitch: { level: "none", nonce: 0 },
         helpOpen: false,
         runStartedAt: Date.now(),
+        runId: newRunId(),
         runDurationMs: 0,
         runSeed: Math.floor(Math.random() * 1_000),
       });
