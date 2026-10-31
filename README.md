@@ -32,6 +32,7 @@ The timer pauses while you read long files, play recordings, or open the manual.
 npm install                  # also generates the Prisma client
 cp .env.example .env.local   # optional: add OLLAMA_API_KEY and DATABASE_URL
 npm run db:push              # optional: creates the anonymous stats table
+npm run voice:render         # optional: pre-renders Ines's recordings with ElevenLabs (commit the mp3s)
 npm run dev                  # http://localhost:3000
 ```
 
@@ -43,6 +44,7 @@ Every integration is optional and switches on only when its key is set. With no 
 | `OLLAMA_MODEL` / `OLLAMA_FALLBACK_MODEL` | open-weight models (default `gemma4:31b`, then `gpt-oss:20b`). Set `OLLAMA_HOST=http://localhost:11434` to use a local Ollama |
 | `DIGITALOCEAN_INFERENCE_KEY` | DigitalOcean serverless inference model access key: the same Gemma 4 weights on a second provider (`DIGITALOCEAN_MODEL`, default `gemma-4-31B-it`) |
 | `DIALOGUE_PRIMARY_PROVIDER` | `ollama` (default) or `digitalocean` to choose which provider is tried first |
+| `ELEVENLABS_API_KEY` | ElevenLabs voices for M_VEGA's live lines and Ines's recordings (`ELEVENLABS_VOICE_ID`, `ELEVENLABS_MODEL_ID`, `VOICE_DAILY_LINE_LIMIT` optional) |
 | `SENTRY_DSN` | Sentry agent tracing for the dialogue pipeline. `SENTRY_RECORD_DIALOGUE=true` also attaches prompts and lines (off by default) |
 | `DATABASE_URL` | Postgres for anonymous run outcomes (no names or personal data are stored) |
 
@@ -70,7 +72,9 @@ app/api/         /api/dialogue (character lines), /api/runs (anonymous stats), /
 
 Lines come from a chain of open-weight models that share one 4.5-second budget: **Gemma 4 31B on Ollama Cloud**, then **the same Gemma 4 weights on DigitalOcean serverless inference**, then **gpt-oss-20b**. Every attempt except the last is capped, so one hung provider can't use up the whole budget. Each line is traced in **Sentry** as an `invoke_agent` span (M_VEGA or HOLLOW), with one `gen_ai.chat` span per attempt (provider, model, tokens, latency, failure code) and a `gen_ai.decide` span for the sanitizer's verdict.
 
-Everything you hear is synthesized live with the Web Audio API: the CRT hum, the soft typewriter strikes and carriage returns as the opening types itself out, key clicks, drive seeks, radio static, warning tones. There are no audio files.
+Every sound effect is synthesized live with the Web Audio API: the CRT hum, the soft typewriter strikes and carriage returns as the opening types itself out, key clicks, drive seeks, radio static, warning tones. There are no sound-effect files.
+
+**Voices come from ElevenLabs.** Dr. Ines Vega's authentic recordings are pre-rendered with Eleven v3 (`npm run voice:render`), where stage directions such as *(laughs)* become audio tags. They play off a hissing, wow-and-flutter "tape" while the transcript scrolls in sync with ElevenLabs' character timestamps. M_VEGA speaks every message live through the terminal's speaker with Flash v2.5. It's the same voice with the stability turned up and the style turned off, so it sounds slightly too steady: a voiceprint "99.1% synthesized from source." `/api/voice` only speaks lines the server wrote (model lines signed by `/api/dialogue`, or authored lines with nothing but the player's callsign filled in), and it's rate-limited per client, per minute, per hour and per day, so it can't be used as a free text-to-speech proxy. HOLLOW stays text: it's a system process.
 
 ## Deploying (Render)
 

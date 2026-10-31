@@ -40,4 +40,4 @@ This is not the Next.js in your training data. Read `node_modules/next/dist/docs
 
 ## Secrets
 
-`.env.local` only (see `.env.example` for the full list): `OLLAMA_*`, `DIGITALOCEAN_*`, `SENTRY_*`, `DATABASE_URL`. Production env vars are declared in `render.yaml`. Never commit them, never expose them to client code.
+`.env.local` only (see `.env.example` for the full list): `OLLAMA_*`, `DIGITALOCEAN_*`, `ELEVENLABS_*`, `VOICE_*`, `SENTRY_*`, `DATABASE_URL`. Production env vars are declared in `render.yaml`. Never commit them, never expose them to client code.
