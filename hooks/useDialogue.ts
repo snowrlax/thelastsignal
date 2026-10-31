@@ -1,0 +1,88 @@
+"use client";
+
+import { useEffect } from "react";
+import { useGameStore } from "@/hooks/useGameStore";
+import { sound } from "@/libs/audio";
+import { isStillRelevant, type PlannedMessage } from "@/game/story/director";
+import { buildDialogueRequest, fetchDialogueLine } from "@/libs/dialogueClient";
+
+const MIN_RECEIVING_MS = 900;
+const TYPE_MS_PER_CHAR = 26;
+
+const wait = (ms: number) => new Promise<void>((resolve) => window.setTimeout(resolve, ms));
+
+const recordingPlaying = () => Boolean(useGameStore.getState().game?.timer.pausedBy.includes("recording"));
+
+/** Recordings are protected: nobody talks over Ines. */
+async function waitForSilence(isCancelled: () => boolean): Promise<void> {
+  while (recordingPlaying() && !isCancelled()) await wait(250);
+}
+
+/**
+ * Delivers planned character messages one at a time. The model may voice them;
+ * if it is slow or unavailable the authored line is used. Never blocks input.
+ */
+export function useDialogue(active: boolean): void {
+  useEffect(() => {
+    if (!active) return;
+    let cancelled = false;
+    let running = false;
+
+    const deliver = async (message: PlannedMessage) => {
+      if (message.delayMs > 0) await wait(message.delayMs);
+      // Re-checked synchronously after every await, so a recording that starts meanwhile still wins.
+      do await waitForSilence(() => cancelled);
+      while (recordingPlaying() && !cancelled);
+      const store = useGameStore.getState();
+      if (cancelled || !store.game || store.ending?.ending === "lost") return;
+      const { game } = store;
+      const ctx = { phase: game.phase === "ended" ? game.endedInPhase ?? "recovery" : game.phase, evidence: game.evidence, system: game.system };
+      if (!isStillRelevant(message, ctx)) return;
+      if (store.ending && message.event !== "persona_stopped") return;
+
+      sound().play(message.speaker === "vega" ? "message" : "hollow");
+      const id = store.openMessage(message);
+      let aiText: string | null = null;
+      try {
+        const started = Date.now();
+        aiText = message.useAi ? await fetchDialogueLine(buildDialogueRequest(game, message, store.conversation)) : null;
+        const elapsed = Date.now() - started;
+        if (elapsed < MIN_RECEIVING_MS) await wait(MIN_RECEIVING_MS - elapsed);
+      } finally {
+        // A window is never left on "receiving": it resolves, or vanishes if the takeover began meanwhile.
+        const latest = useGameStore.getState();
+        if (latest.ending?.ending === "lost") latest.dropMessage(id);
+        else latest.resolveMessage(id, aiText ?? message.fallback, aiText ? "ai" : "script");
+      }
+      const text = aiText ?? message.fallback;
+      await wait(Math.min(5_000, text.length * TYPE_MS_PER_CHAR + 400));
+    };
+
+    const run = async () => {
+      if (running) return;
+      running = true;
+      try {
+        while (!cancelled) {
+          const message = useGameStore.getState().takeMessage();
+          if (!message) break;
+          try {
+            await deliver(message);
+          } catch (error) {
+            console.error("[dialogue] message failed", error);
+          }
+        }
+      } finally {
+        running = false;
+      }
+    };
+
+    void run();
+    const unsubscribe = useGameStore.subscribe((state, previous) => {
+      if (state.messageQueue.length > 0 && state.messageQueue !== previous.messageQueue) void run();
+    });
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
+  }, [active]);
+}

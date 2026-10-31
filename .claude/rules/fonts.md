@@ -2,55 +2,15 @@
 
 ## Current fonts
 
-- **Sans (primary):** Gabarito (variable, 400–900) via `--font-gabarito`
-- **Mono:** Geist Mono via `--font-geist-mono`
+- **Terminal:** VT323 via `--font-vt323` (token `--font-terminal`)
+- **Title:** League Gothic (variable) via `--font-league-gothic` (token `--font-display`)
+- **Handset soft keys / status bar:** Pixelify Sans (variable) via `--font-pixelify` (token `--font-pixel`)
+- **LED dot-matrix:** not a web font. A hand-drawn 5x7 character set in `components/crt/font5x7.ts`, rendered by `components/crt/DotMatrix.tsx`
 
-## Standard procedure to add or change a font
+## Adding or changing a font
 
-### Step 1: Import in `app/layout.tsx`
+1. Import it from `next/font/google` in `app/layout.tsx` with a `variable` option and `display: "swap"`.
+2. Add the variable to the `<html>` className in `app/layout.tsx`.
+3. Map it to a token in the `@theme inline` block of `app/globals.css`.
 
-```tsx
-import { FontName } from "next/font/google";
-
-const fontName = FontName({
-  variable: "--font-font-name",
-  subsets: ["latin"],
-  weight: "variable",   // for variable fonts — loads the full weight axis
-  display: "swap",
-});
-```
-
-- Import from `next/font/google` (self-hosted at build time, no runtime Google requests)
-- Use the `variable` option to register a CSS custom property
-- For variable fonts: set `weight: "variable"` to get the full axis
-- For static fonts: pass an array of specific weights like `weight: ["400", "700"]`
-- Always set `display: "swap"` to prevent FOIT (flash of invisible text)
-
-### Step 2: Apply the CSS variable on `<html>`
-
-Add `fontName.variable` to the `<html>` className in `app/layout.tsx`:
-
-```tsx
-<html className={`${gabarito.variable} ${geistMono.variable} ${newFont.variable}`}>
-```
-
-### Step 3: Wire up in `app/globals.css`
-
-Map the CSS variable to a Tailwind v4 design token in the `@theme inline` block:
-
-```css
-@theme inline {
-  --font-sans: var(--font-gabarito);
-  --font-mono: var(--font-geist-mono);
-  --font-display: var(--font-new-name);  /* custom token */
-}
-```
-
-Then use via Tailwind classes: `font-sans`, `font-mono`, or `font-display`.
-
-## Rules
-
-- Never load fonts via `<link>` tags or CSS `@import url()` — always use `next/font/google`
-- Never use `className` approach — always use `variable` + CSS custom property for Tailwind v4 integration
-- Register every font variable in `@theme inline` in `globals.css`
-- Apply all font variables on `<html>` in `layout.tsx` — not on `<body>` or deeper elements
+Never load fonts via `<link>` tags or CSS `@import url()`.

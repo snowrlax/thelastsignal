@@ -1,118 +1,83 @@
-# ShipNext
+# THE LAST SIGNAL
 
-A production-ready Next.js 16 SaaS starter template. Ship your product in days, not weeks.
+*A short interactive psychological horror experience.*
 
-## Features
+November 2, 2026. You are the night technician sent to recover one last archive from a sealed laboratory. The old research computer, **OFRENDA**, should not be running. A message is already waiting.
 
-- **Next.js 16** with App Router and React 19
-- **Tailwind CSS 4** with CSS-based configuration
-- **daisyUI 5** component library with custom dark theme
-- **NextAuth.js** with Google OAuth and Prisma adapter
-- **Prisma ORM** with PostgreSQL/SQLite support
-- **Stripe** payments integration (ready to configure)
-- **Mailgun** email integration (ready to configure)
-- **TypeScript 5** with strict mode
-- **ESLint 9** with flat config
+Someone on the other end says she is Dr. Inés Vega, the scientist who built the machine and died fourteen years ago tonight. A process called **HOLLOW** says not to trust her. You have a terminal, a handful of Linux commands, and a containment window that is closing.
 
-## Quick Start
+One command decides everything. Play it to find out which.
 
-```bash
-# Clone the repository
-git clone https://github.com/yourusername/shipnext.git
-cd shipnext
+- **Length:** 10–15 minutes
+- **Endings:** two (*Archive Preserved* and *Signal Lost*)
+- **Platform:** any modern desktop browser (phones work, keyboards help)
 
-# Install dependencies
-npm install
+## How to play
 
-# Copy environment variables
-cp .env.example .env.local
+Type commands at the prompt. `help` lists them, `hint` nudges you, and **F1** opens the manual (the clock holds while it is open).
 
-# Set up the database
-npx prisma db push
+| You'll use | For |
+|---|---|
+| `ls -la`, `cd`, `pwd` | moving around (hidden files start with `.`) |
+| `cat`, `play`, `grep`, `find` | reading notes and logs, listening to recordings, searching |
+| `ps aux`, `ps -fp <pid>`, `top`, `dmesg` | seeing what is really running |
+| `cp -r`, `kill -TERM`, `kill -9` | acting. Choose carefully. |
+| `reply <message>` | talking back to the session on `pts/404` |
 
-# Start development server
-npm run dev
-```
+The timer pauses while you read long files, play recordings, or open the manual. Mistyped commands never cost time. Reduced-pressure mode (1.5× timers) is on the identification screen.
 
-Open [http://localhost:3000](http://localhost:3000) to see your app.
-
-## Environment Variables
-
-Copy `.env.example` to `.env.local` and configure:
-
-| Variable | Description |
-|----------|-------------|
-| `NEXTAUTH_URL` | Your app URL (e.g., `http://localhost:3000`) |
-| `NEXTAUTH_SECRET` | Generate with `openssl rand -base64 32` |
-| `GOOGLE_ID` | Google OAuth client ID |
-| `GOOGLE_SECRET` | Google OAuth client secret |
-| `DATABASE_URL` | Prisma connection string |
-| `STRIPE_PUBLIC_KEY` | Stripe publishable key |
-| `STRIPE_SECRET_KEY` | Stripe secret key |
-| `STRIPE_WEBHOOK_SECRET` | Stripe webhook signing secret |
-| `MAILGUN_API_KEY` | Mailgun API key (optional) |
-
-## Project Structure
-
-```
-app/                  # Next.js App Router
-├── layout.tsx        # Root layout with fonts and auth
-├── page.tsx          # Landing page
-├── globals.css       # Tailwind + theme configuration
-├── api/              # API routes
-├── login/            # OAuth login page
-└── dashboard/        # Protected dashboard
-
-components/           # Reusable React components
-├── Header.tsx        # Navigation with auth
-├── Hero.tsx          # Hero section
-├── Pricing.tsx       # Pricing cards
-├── FAQ.tsx           # FAQ accordion
-└── ui/               # UI primitives
-
-libs/                 # Service wrappers
-prisma/               # Database schema
-hooks/                # Custom React hooks
-config.ts             # App configuration
-content.ts            # Marketing copy
-```
-
-## Customization
-
-### Theme
-
-The custom `shipnext` theme is defined in `app/globals.css`. Modify the CSS custom properties under `[data-theme="shipnext"]` to customize colors.
-
-### Content
-
-Update `content.ts` to change:
-- App name and tagline
-- Feature descriptions
-- Pricing plans
-- FAQ questions
-
-### Configuration
-
-Update `config.ts` to configure:
-- Stripe plans and pricing
-- Mailgun email settings
-- Auth URLs
-
-## Commands
+## Running it
 
 ```bash
-npm run dev      # Start dev server
-npm run build    # Production build
-npm run start    # Start production server
-npm run lint     # Run ESLint
+npm install                  # also generates the Prisma client
+cp .env.example .env.local   # optional: add OLLAMA_API_KEY and DATABASE_URL
+npm run db:push              # optional: creates the anonymous stats table
+npm run dev                  # http://localhost:3000
 ```
 
-## Deploy
+Both integrations are optional. Without `OLLAMA_API_KEY` every line is authored dialogue. Without `DATABASE_URL` the ending screen simply skips the "operators who preserved the archive" figure.
 
-Deploy to Vercel with one click:
+| Variable | Purpose |
+|---|---|
+| `OLLAMA_API_KEY` | Ollama Cloud key for M_VEGA and HOLLOW's live dialogue |
+| `OLLAMA_MODEL` / `OLLAMA_FALLBACK_MODEL` | open-weight models (default `gemma4:31b`, then `gpt-oss:20b`) |
+| `DATABASE_URL` | Postgres for anonymous run outcomes (no names or personal data are stored) |
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/yourusername/shipnext)
+## How it is built
 
-## License
+```
+game/          Pure, deterministic engine: no React, no network, no randomness in outcomes
+  engine.ts      runCommand(state, input) and tick(state, ms) → new state + output + story events
+  commands/      the shell: ls, cd, cat, grep, find, ps, top, kill, cp, play, reply, ...
+  content/       every file on the machine (the story lives here)
+  fs/            virtual filesystem, paths, symlinks
+  timer.ts       phase windows, warnings, grace periods, reading holds
+  phases.ts      evidence → phase transitions
+  story/         triggers + authored dialogue, director (cooldowns), LLM prompts, sanitizer, schemas
+components/
+  crt/           monitor, pillow-shaped glass, LED dot-matrix font, handset status icons
+  screens/       landing → identify → cinematic → boot → terminal → ending
+  terminal/      status bar, scrollback, message windows, prompt, side panel, manual
+hooks/           zustand store around the engine; printer, dialogue, game loop, ending sequence
+libs/            Ollama client, Prisma, rate limiting, Web Audio synth, storage, session report
+app/api/         /api/dialogue (character lines), /api/runs (anonymous stats), /api (health)
+```
 
-MIT
+**The model never touches game state.** The engine owns every file, process, timer, flag and ending. The model is only asked to *voice* a story beat that the engine already decided. The client sends an event id and a fixed set of facts, not a prompt. The server builds the prompt from canon, enforces a knowledge gate so the twist cannot leak early, and sanitizes the reply (length, no out-of-character text, no invented numbers or commands). If the model is slow, unavailable or off-script, the authored line is used and nothing waits on it.
+
+Everything you hear is synthesized live with the Web Audio API: the CRT hum, key clicks, drive seeks, radio static, warning tones. There are no audio files.
+
+## Tests
+
+```bash
+npm test               # unit + integration + component (Vitest)
+npm run test:coverage  # with coverage (thresholds: 80% lines/functions/statements, 75% branches)
+npm run test:e2e       # Playwright: both endings, the timeout path, onboarding, the terminal
+npm run typecheck && npm run lint
+```
+
+End-to-end tests stub the model and the stats endpoint, so they are deterministic and never write to the database. In development, `?timescale=N` speeds up game time (production ignores it).
+
+## Credits
+
+Story, design and code for Día de los Muertos 2026. *Some memories are meant to be kept. Not recreated.*
