@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useGameStore } from "@/hooks/useGameStore";
 import { sound } from "@/libs/audio";
+import { tapeDeck } from "@/libs/voiceTape";
 
 const IDLE_POLL_MS = 40;
 
@@ -46,10 +47,12 @@ export function usePrinter(active: boolean): void {
       const taken = store.takeQueued();
       if (taken?.type === "line") {
         store.printLine(taken.line);
+        tapeDeck().printed(taken.line);
         if (delay > 0 && taken.line.kind === "voice") sound().play("key");
       } else if (taken?.action === "clear") {
         store.clearScreen();
       } else if (taken?.action === "release_recording") {
+        tapeDeck().stop();
         store.releaseRecording();
       }
       timer = window.setTimeout(loop, 0);

@@ -8,6 +8,7 @@ import type { Speaker } from "@/game/story/triggers";
 import type { Ending, GameState, LineKind, LossCause, OutputLine, StepResult, StoryEvent } from "@/game/types";
 import { sound, type Cue } from "@/libs/audio";
 import type { ConversationEntry } from "@/libs/dialogueClient";
+import { tapeDeck } from "@/libs/voiceTape";
 
 export type Screen = "landing" | "identify" | "cinematic" | "boot" | "terminal" | "ending";
 
@@ -43,6 +44,12 @@ export type EndingStage = "none" | "sequence" | "poweroff" | "epitaph" | "done";
 
 const MAX_ITEMS = 400;
 
+/** A random id that carries nothing about the player. */
+function newRunId(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") return crypto.randomUUID();
+  return Array.from({ length: 4 }, () => Math.floor(Math.random() * 0x100000000).toString(16).padStart(8, "0")).join("-");
+}
+
 interface GameStore {
   screen: Screen;
   playerName: string;
@@ -65,6 +72,8 @@ interface GameStore {
   runDurationMs: number;
   nextId: number;
   runSeed: number;
+  /** Opaque id for one playthrough; groups its dialogue as one conversation in tracing. */
+  runId: string;
 
   setScreen(screen: Screen): void;
   setPlayerName(name: string): void;
@@ -107,6 +116,12 @@ function silenceForReveal(game: GameState): void {
   setTimeout(() => sound().setHumLevel(level), REVEAL_SILENCE_MS);
 }
 
+/** `play` output is paced to Ines's tape when one is ready (see libs/voiceTape.ts). */
+function outputLines(result: StepResult): readonly OutputLine[] {
+  const recording = result.effects.find((effect) => effect.type === "recording");
+  return recording?.type === "recording" ? tapeDeck().arm(result.lines, recording.id) : result.lines;
+}
+
 function lineText(item: OutputLine): string {
   return item.text;
 }
@@ -115,7 +130,7 @@ export const useGameStore = create<GameStore>()((set, get) => {
   /** Applies one engine step: output, effects, story events, sound. */
   function applyStep(result: StepResult): void {
     const state = get();
-    const queue: QueueEntry[] = [...state.queue, ...result.lines.map((line): QueueEntry => ({ type: "line", line }))];
+    const queue: QueueEntry[] = [...state.queue, ...outputLines(result).map((line): QueueEntry => ({ type: "line", line }))];
     let game = result.state;
     let ending = state.ending;
     let glitch = state.glitch;
@@ -200,6 +215,7 @@ export const useGameStore = create<GameStore>()((set, get) => {
     runDurationMs: 0,
     nextId: 1,
     runSeed: 0,
+    runId: "",
 
     setScreen: (screen) => set({ screen }),
     setPlayerName: (playerName) => set({ playerName }),
@@ -226,6 +242,7 @@ export const useGameStore = create<GameStore>()((set, get) => {
         glitch: { level: "none", nonce: 0 },
         helpOpen: false,
         runStartedAt: Date.now(),
+        runId: newRunId(),
         runDurationMs: 0,
         runSeed: Math.floor(Math.random() * 1_000),
       });

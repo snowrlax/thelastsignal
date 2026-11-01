@@ -2,60 +2,55 @@
 
 import { useCallback, useEffect, useState } from "react";
 import DotMatrix from "@/components/crt/DotMatrix";
+import { CUT_MS, OPENING_CARDS, PROMPT, cardSeed } from "@/components/screens/opening";
 import { useGameStore } from "@/hooks/useGameStore";
+import { useHumanTyping } from "@/hooks/useHumanTyping";
 import { sound } from "@/libs/audio";
 import { readFlag, STORAGE_KEYS, writeFlag } from "@/libs/storage";
 
-interface Card {
-  readonly text: string;
-  readonly hold: number;
-  readonly title?: boolean;
+function prefersReducedMotion(): boolean {
+  return typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
-export const OPENING_CARDS: readonly Card[] = [
-  { text: "NOVEMBER 2.", hold: 3_000 },
-  { text: "FOURTEEN YEARS AGO, DR. INÉS VEGA BUILT A MACHINE.", hold: 3_400 },
-  { text: "IT WAS DESIGNED TO PRESERVE THE VOICES OF THE DEAD.", hold: 3_200 },
-  { text: "THEIR STORIES.", hold: 2_000 },
-  { text: "THEIR MEMORIES.", hold: 2_000 },
-  { text: "THEIR LAST WORDS.", hold: 2_600 },
-  { text: "IT WAS NEVER MEANT TO SPEAK BACK.", hold: 3_400 },
-  { text: "ON NOVEMBER 2, 2012, THE SYSTEM WAS SHUT DOWN.", hold: 3_200 },
-  { text: "DR. VEGA WAS FOUND DEAD THE FOLLOWING MORNING.", hold: 3_400 },
-  { text: "THE LABORATORY WAS SEALED.", hold: 2_600 },
-  { text: "THE PROJECT WAS FORGOTTEN.", hold: 2_600 },
-  { text: "UNTIL TONIGHT.", hold: 3_000 },
-  { text: "THE LAST SIGNAL", hold: 4_400, title: true },
-];
+function strike(char: string): void {
+  sound().play(char === " " ? "typeSpace" : "type");
+}
 
-const CUT_MS = 420;
-const PROMPT = "PRESS ANY KEY TO CONTINUE_";
+type CardState = "typing" | "holding" | "cut" | "prompt";
 
-/** One line at a time on pure black: fade in, hold, hard cut. */
+/** One line at a time on pure black, typed by an unseen hand: keys, hold, carriage return, cut. */
 export default function CinematicScreen() {
   const setScreen = useGameStore((state) => state.setScreen);
   const [index, setIndex] = useState(0);
   const [visible, setVisible] = useState(true);
-  // Only rendered after a user gesture on the client, so reading storage here is safe.
+  // Only rendered after a user gesture on the client, so reading storage and media queries here is safe.
   const [seenBefore] = useState(() => readFlag(STORAGE_KEYS.seenOpening));
+  const [reduceMotion] = useState(prefersReducedMotion);
   const atPrompt = index >= OPENING_CARDS.length;
+  const card = atPrompt ? null : OPENING_CARDS[index];
+  const text = card ? card.text : PROMPT;
+  const { count, done, complete } = useHumanTyping(text, { seed: cardSeed(index), instant: reduceMotion, onStroke: strike });
 
   useEffect(() => {
     sound().setHumLevel(0.35);
   }, []);
 
+  // Once a line is typed: let it sit, return the carriage, cut to black, then the next line.
   useEffect(() => {
-    if (atPrompt) return;
-    const hold = window.setTimeout(() => setVisible(false), OPENING_CARDS[index].hold);
+    if (!card || !done) return;
+    const hold = window.setTimeout(() => {
+      setVisible(false);
+      sound().play("carriage");
+    }, card.hold);
     const next = window.setTimeout(() => {
       setIndex((value) => value + 1);
       setVisible(true);
-    }, OPENING_CARDS[index].hold + CUT_MS);
+    }, card.hold + CUT_MS);
     return () => {
       window.clearTimeout(hold);
       window.clearTimeout(next);
     };
-  }, [index, atPrompt]);
+  }, [card, done]);
 
   const finish = useCallback(() => {
     writeFlag(STORAGE_KEYS.seenOpening, true);
@@ -65,12 +60,15 @@ export default function CinematicScreen() {
 
   useEffect(() => {
     const onInput = (event: KeyboardEvent | PointerEvent) => {
-      if (atPrompt) return finish();
+      if (event instanceof KeyboardEvent && event.repeat) return;
+      // First-time players wait for the prompt to finish typing; it is the only way on.
+      if (atPrompt) return done || seenBefore ? finish() : undefined;
       if (!seenBefore) return;
       if (event instanceof KeyboardEvent && event.key === "Escape") return finish();
-      setVisible(false);
+      if (!visible) return; // already cutting to the next line
+      if (!done) return complete();
+      sound().play("carriage");
       setIndex((value) => Math.min(OPENING_CARDS.length, value + 1));
-      window.setTimeout(() => setVisible(true), 60);
     };
     window.addEventListener("keydown", onInput);
     window.addEventListener("pointerdown", onInput);
@@ -78,21 +76,21 @@ export default function CinematicScreen() {
       window.removeEventListener("keydown", onInput);
       window.removeEventListener("pointerdown", onInput);
     };
-  }, [atPrompt, finish, seenBefore]);
+  }, [atPrompt, finish, seenBefore, visible, done, complete]);
 
-  const card = atPrompt ? null : OPENING_CARDS[index];
+  const state: CardState = atPrompt ? "prompt" : !visible ? "cut" : done ? "holding" : "typing";
   return (
-    <div className="cinema" data-testid="cinematic">
+    <div className="cinema" data-testid="cinematic" data-card={atPrompt ? "prompt" : index} data-state={state} data-progress={count}>
       {visible && (
         <div key={index} className="card-in" style={{ width: "min(1200px, 88vw)" }}>
           <DotMatrix
-            text={card ? card.text : PROMPT}
+            text={text}
+            reveal={count}
+            caret={done ? "blink" : "solid"}
             dot={card?.title ? 7 : 4}
             gap={card?.title ? 2 : 1}
-           
             color={card?.title ? "#e6a24d" : "#cf9a57"}
             glow={card?.title ? "rgba(255, 140, 40, 0.6)" : "rgba(255, 140, 40, 0.35)"}
-            cursor={false}
           />
         </div>
       )}

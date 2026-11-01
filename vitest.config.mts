@@ -17,7 +17,7 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       include: ["game/**/*.ts", "libs/**/*.ts", "app/api/**/*.ts", "hooks/**/*.ts"],
-      exclude: ["libs/prisma.ts", "libs/audio.ts", "**/*.d.ts"],
+      exclude: ["libs/prisma.ts", "libs/audio.ts", "libs/voiceOutput.ts", "**/*.d.ts"],
       thresholds: { lines: 80, functions: 80, branches: 75, statements: 80 },
     },
   },

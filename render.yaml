@@ -1,0 +1,50 @@
+# Render Blueprint for THE LAST SIGNAL.
+# Render dashboard → New → Blueprint → pick this repo. Render asks for every
+# `sync: false` value once; leave any integration empty to switch it off.
+services:
+  - type: web
+    name: the-last-signal
+    runtime: node
+    # Frankfurt is closest to the Supabase database (eu-west-1).
+    region: frankfurt
+    # No `plan` set: Render uses its smallest always-on instance. The free plan
+    # sleeps when idle, which gives first visitors a long cold start.
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    healthCheckPath: /api
+    # Deploy a commit only after GitHub Actions CI has passed on it.
+    autoDeployTrigger: checksPass
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      # Open-weight dialogue: Gemma 4 on Ollama Cloud, then DigitalOcean, then gpt-oss.
+      - key: OLLAMA_API_KEY
+        sync: false
+      - key: OLLAMA_MODEL
+        value: gemma4:31b
+      - key: OLLAMA_FALLBACK_MODEL
+        value: gpt-oss:20b
+      - key: DIGITALOCEAN_INFERENCE_KEY
+        sync: false
+      - key: DIGITALOCEAN_MODEL
+        value: gemma-4-31B-it
+      # Voices (ElevenLabs). The signing secret stops the TTS route being used as an open proxy.
+      - key: ELEVENLABS_API_KEY
+        sync: false
+      - key: ELEVENLABS_VOICE_ID
+        sync: false
+      - key: VOICE_SIGNING_SECRET
+        generateValue: true
+      - key: VOICE_DAILY_LINE_LIMIT
+        value: "1500"
+      # Agent tracing (Sentry).
+      - key: SENTRY_DSN
+        sync: false
+      - key: SENTRY_ENVIRONMENT
+        value: production
+      # Anonymous run stats (Postgres).
+      - key: DATABASE_URL
+        sync: false
+      # Public URL for social previews, e.g. https://thelastsignal.tech (defaults to the onrender.com URL).
+      - key: SITE_URL
+        sync: false

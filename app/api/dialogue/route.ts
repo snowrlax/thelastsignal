@@ -4,15 +4,20 @@ import { sanitizeDialogue } from "@/game/story/sanitize";
 import { dialogueRequestSchema, type ApiEnvelope } from "@/game/story/schema";
 import { aiHintFor } from "@/game/story/triggers";
 import { sanitizeCallsign } from "@/game/engine";
-import { chatCompletion } from "@/libs/ollama";
+import { generateLine } from "@/libs/llm";
 import { clientKey, createRateLimiter, GLOBAL_KEY, readLimitedJson } from "@/libs/rateLimit";
+import { traceDialogue, tracedAttempts, tracedGuardrail, type DialogueTraceMeta } from "@/libs/tracing";
+import { signVoiceLine } from "@/libs/voiceToken";
 
 interface DialogueData {
   readonly text: string;
   readonly source: "ai";
+  /** Lets /api/voice speak this exact M_VEGA line. Only present when ElevenLabs is configured. */
+  readonly voiceToken?: string;
 }
 
 const MAX_BODY_BYTES = 8_192;
+const DIALOGUE_TEMPERATURE = 0.85;
 const limiter = createRateLimiter({ limit: 40, windowMs: 60_000 });
 /** Backstop for the paid model: total calls per minute across every client. */
 const globalLimiter = createRateLimiter({ limit: 600, windowMs: 60_000 });
@@ -46,13 +51,28 @@ export async function POST(request: Request) {
   const moment = aiHintFor(dialogue.event, dialogue.speaker);
   if (!moment) return respond({ success: false, data: null, error: "not_voiced" }, 422);
 
-  const raw = await chatCompletion(buildDialoguePrompt(dialogue, moment), {
+  const messages = buildDialoguePrompt(dialogue, moment);
+  const meta: DialogueTraceMeta = {
+    agent: dialogue.speaker === "vega" ? "M_VEGA" : "HOLLOW",
+    event: dialogue.event,
+    phase: dialogue.phase,
+    evidenceCount: dialogue.evidence.length,
     maxTokens: dialogue.speaker === "vega" ? 160 : 60,
+    temperature: DIALOGUE_TEMPERATURE,
+    ...(dialogue.runId ? { conversationId: dialogue.runId } : {}),
+  };
+  const { text } = await traceDialogue(meta, async () => {
+    const result = await generateLine(messages, { maxTokens: meta.maxTokens, temperature: meta.temperature }, tracedAttempts(meta, messages));
+    const raw = result.text;
+    const sanitized = raw
+      ? tracedGuardrail(meta.agent, () =>
+          sanitizeDialogue(raw, { speaker: dialogue.speaker, identifiedTruth: dialogue.evidence.includes("identified_truth") }),
+        )
+      : null;
+    return { result, text: sanitized };
   });
-  const text = raw
-    ? sanitizeDialogue(raw, { speaker: dialogue.speaker, identifiedTruth: dialogue.evidence.includes("identified_truth") })
-    : null;
   if (!text) return respond({ success: false, data: null, error: "unavailable" }, 503);
 
-  return respond({ success: true, data: { text, source: "ai" }, error: null }, 200);
+  const voiceToken = dialogue.speaker === "vega" ? signVoiceLine("vega", text) : null;
+  return respond({ success: true, data: { text, source: "ai", ...(voiceToken ? { voiceToken } : {}) }, error: null }, 200);
 }
